@@ -231,8 +231,7 @@ func SpotifyInlineHandler(update telegram.Update, client *telegram.Client) error
 		return nil
 	}
 
-	downloader := utils.NewDownload(*track)
-	audioFile, thumb, err := downloader.Process()
+	audioFile, thumb, err := utils.NewDownload(*track).Process()
 	if err != nil || audioFile == "" {
 		client.Logger.Warn("Process failed:", err)
 		_, _ = client.EditMessage(&send.MsgID, 0, "⚠️ Failed to download the song.")
@@ -241,7 +240,6 @@ func SpotifyInlineHandler(update telegram.Update, client *telegram.Client) error
 
 	progress := telegram.NewProgressManager(3).SetInlineMessage(client, &send.MsgID)
 	file, err := client.GetSendableMedia(audioFile, &telegram.MediaMetadata{
-		FileName:        track.Name,
 		Thumb:           thumb,
 		Attributes:      buildAudioAttributes(track),
 		ProgressManager: progress,
@@ -263,6 +261,7 @@ func SpotifyInlineHandler(update telegram.Update, client *telegram.Client) error
 		time.Sleep(700 * time.Millisecond)
 		err = clientSendEditedMessage(client, &send.MsgID, caption, &options)
 	}
+
 	if err != nil {
 		client.Logger.Warn("Edit failed:", err)
 		_, _ = client.EditMessage(&send.MsgID, 0, "❌ Failed to send the song."+err.Error())
