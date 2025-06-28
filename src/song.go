@@ -40,6 +40,11 @@ func buildAudioAttributes(track *utils.TrackInfo) []telegram.DocumentAttribute {
 	}
 }
 
+func clientSendEditedMessage(client *telegram.Client, msgID any, text string, opts *telegram.SendOptions) error {
+	_, err := client.EditMessage(msgID, 0, text, opts)
+	return err
+}
+
 // SpotifySearchSong handles user input for searching Spotify tracks.
 func SpotifySearchSong(m *telegram.NewMessage) error {
 	query := m.Text()
@@ -55,7 +60,7 @@ func SpotifySearchSong(m *telegram.NewMessage) error {
 	kb := telegram.NewKeyboard()
 
 	if api.IsValid(query) {
-		song, err := api.GetInfo(query)
+		song, err := api.GetInfo()
 		if err != nil || song == nil || len(song.Results) == 0 {
 			_, _ = m.Reply("😢 Song not found.")
 			return nil
@@ -70,6 +75,7 @@ func SpotifySearchSong(m *telegram.NewMessage) error {
 			_, _ = m.Reply("😔 No results found.")
 			return nil
 		}
+
 		for _, track := range search.Results {
 			data := fmt.Sprintf("spot_%s_%d", utils.EncodeURL(track.URL), m.SenderID())
 			kb.AddRow(telegram.Button.Data(fmt.Sprintf("%s - %s", track.Name, track.Artist), data))
@@ -114,7 +120,7 @@ func SpotifyHandlerCallback(cb *telegram.CallbackQuery) error {
 		return nil
 	}
 
-	track, err := utils.NewApiData("").GetTrack(url)
+	track, err := utils.NewApiData(url).GetTrack()
 	if err != nil {
 		cb.Client.Logger.Warn("Failed to fetch track:", err.Error())
 		_, _ = cb.Edit("❌ Could not fetch track details.")
@@ -219,7 +225,7 @@ func SpotifyInlineSearch(query *telegram.InlineQuery) error {
 // SpotifyInlineHandler handles inline result selection.
 func SpotifyInlineHandler(update telegram.Update, client *telegram.Client) error {
 	send := update.(*telegram.UpdateBotInlineSend)
-	track, err := utils.NewApiData("").GetTrack(send.ID)
+	track, err := utils.NewApiData(send.ID).GetTrack()
 	if err != nil {
 		_, _ = client.EditMessage(&send.MsgID, 0, "❌ Spotify song not found.")
 		return nil
@@ -250,14 +256,16 @@ func SpotifyInlineHandler(update telegram.Update, client *telegram.Client) error
 
 	caption := buildTrackCaption(track)
 	options := prepareTrackMessageOptions(file, caption)
-	time.Sleep(500 * time.Millisecond)
-	if _, err = client.EditMessage(&send.MsgID, 0, caption, &options); err != nil {
-		client.Logger.Warn("Edit failed:", err)
-		if strings.Contains("MEDIA_EMPTY", err.Error()) {
-			time.Sleep(1 * time.Second)
-			_, err = client.EditMessage(&send.MsgID, 0, caption, &options)
-		}
-		_, _ = client.EditMessage(&send.MsgID, 0, "❌ Failed to send the song.")
+	time.Sleep(300 * time.Millisecond)
+	err = clientSendEditedMessage(client, &send.MsgID, caption, &options)
+	if err != nil && strings.Contains(err.Error(), "MEDIA_EMPTY") {
+		client.Logger.Warn("Retrying due to MEDIA_EMPTY...")
+		time.Sleep(700 * time.Millisecond)
+		err = clientSendEditedMessage(client, &send.MsgID, caption, &options)
 	}
-	return nil
+	if err != nil {
+		client.Logger.Warn("Edit failed:", err)
+		_, _ = client.EditMessage(&send.MsgID, 0, "❌ Failed to send the song."+err.Error())
+	}
+	return err
 }

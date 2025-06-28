@@ -7,49 +7,46 @@ import (
 	"github.com/amarnathcjd/gogram/telegram"
 )
 
-// StartHandle handles the /start command with a welcome message
+// StartHandle responds to the /start command with a welcome message.
 func StartHandle(m *telegram.NewMessage) error {
 	bot := m.Client.Me()
+	name := m.Sender.FirstName
 
 	response := fmt.Sprintf(
-		`👋 Hey %s!
-		
-🎶 <b>Welcome to %s — your music download buddy!</b>
+		`👋 Hello <b>%s</b>!
 
-▶️ Just send a song name or drop a Spotify, YouTube, AppleMusic and SoundCloud link.
-💬 Inline search: <code>@%s lofi mood</code>
-📥 Group commands:
- ┗ /spotify url
+🎧 <b>Welcome to %s</b> — your personal music downloader bot!  
+Supports: <b>Spotify</b>, <b>YouTube</b>, <b>Apple Music</b>, and <b>SoundCloud</b>.
 
-Enjoy your music! 🔥`,
-		m.Sender.FirstName,
+🔍 <b>To search:</b> Send a song name or a link.
+💬 <b>Inline Search:</b> <code>@%s lofi mood</code>
+📥 <b>Group Command:</b> <code>/spotify &lt;url&gt;</code>
+
+Enjoy endless tunes! 🚀`,
+		name,
 		bot.FirstName,
 		bot.Username,
 	)
 
 	keyboard := telegram.NewKeyboard().
-		AddRow(telegram.Button.URL("💫 Fᴀʟʟᴇɴ Pʀᴏᴊᴇᴄᴛs", "https://t.me/FallenProjects"))
+		AddRow(telegram.Button.URL("💫 Fᴀʟʟᴇɴ Pʀᴏᴊᴇᴄᴛꜱ", "https://t.me/FallenProjects"))
 
 	_, err := m.Reply(response, telegram.SendOptions{
 		ReplyMarkup: keyboard.Build(),
 	})
-
 	return err
 }
 
-// PingHandle handles the /ping command with a latency check
+// PingHandle responds to the /ping command with the bot's latency.
 func PingHandle(m *telegram.NewMessage) error {
 	start := time.Now()
 
-	// Send initial message and measure time
-	sentMsg, err := m.Reply("Pinging...")
+	msg, err := m.Reply("⏱️ Pinging...")
 	if err != nil {
 		return err
 	}
 
-	// Calculate and send response time
 	latency := time.Since(start)
-	_, err = sentMsg.Edit(fmt.Sprintf("<code>Pong!</code> <code>%s</code>", latency))
-
+	_, err = msg.Edit(fmt.Sprintf("🏓 <b>Pong!</b> <code>%s</code>", latency))
 	return err
 }

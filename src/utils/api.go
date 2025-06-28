@@ -66,7 +66,8 @@ func (api *ApiData) IsValid(rawURL string) bool {
 }
 
 // GetInfo fetches track or playlist details from a given URL
-func (api *ApiData) GetInfo(rawURL string) (*PlatformTracks, error) {
+func (api *ApiData) GetInfo() (*PlatformTracks, error) {
+	rawURL := api.Query
 	if !api.IsValid(rawURL) {
 		return nil, errors.New("invalid or unsupported URL")
 	}
@@ -139,7 +140,8 @@ func (api *ApiData) Search(limit string) (*PlatformTracks, error) {
 }
 
 // GetTrack fetches metadata for a specific track by its ID
-func (api *ApiData) GetTrack(trackID string) (*TrackInfo, error) {
+func (api *ApiData) GetTrack() (*TrackInfo, error) {
+	trackID := api.Query
 	if trackID == "" {
 		return nil, errors.New("empty track ID")
 	}

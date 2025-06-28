@@ -40,8 +40,7 @@ func FilterOwner(m *telegram.NewMessage) bool {
 
 // initFunc initializes the bot and registers all command, message, and callback handlers
 func initFunc(c *telegram.Client) {
-	_, _ = c.UpdatesGetState()
-
+	// _, _ = c.UpdatesGetState()
 	// Public commands
 	c.On("command:start", src.StartHandle)
 	c.On("command:ping", src.PingHandle)
@@ -58,7 +57,6 @@ func initFunc(c *telegram.Client) {
 	// Owner-only commands
 	c.On("command:ul", src.UploadHandle, telegram.FilterFunc(FilterOwner))
 	c.On("command:dl", src.DownloadHandle, telegram.FilterFunc(FilterOwner))
-	c.On("command:ver", src.GoGramVersion, telegram.FilterFunc(FilterOwner))
 
 	// Fallback message handler for plain URLs or private messages
 	c.On("message:*", src.SpotifySearchSong, telegram.FilterFunc(filterURLChat))
