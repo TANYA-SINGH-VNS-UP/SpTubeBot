@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/amarnathcjd/gogram/telegram"
 	"songBot/src/utils"
@@ -17,7 +18,6 @@ func prepareTrackMessageOptions(file any, caption string) telegram.SendOptions {
 		Media:    file,
 		Caption:  caption,
 		MimeType: "audio/mpeg",
-		Spoiler:  true,
 		ReplyMarkup: telegram.NewKeyboard().AddRow(
 			telegram.Button.URL("🎧 Fᴀʟʟᴇɴ Pʀᴏᴊᴇᴄᴛꜱ", "https://t.me/FallenProjects"),
 		).Build(),
@@ -241,6 +241,7 @@ func SpotifyInlineHandler(update telegram.Update, client *telegram.Client) error
 		ProgressManager: progress,
 		Inline:          true,
 	})
+
 	if err != nil {
 		client.Logger.Warn("Sendable media error:", err)
 		_, _ = client.EditMessage(&send.MsgID, 0, "❌ Failed to send the song.")
@@ -249,8 +250,13 @@ func SpotifyInlineHandler(update telegram.Update, client *telegram.Client) error
 
 	caption := buildTrackCaption(track)
 	options := prepareTrackMessageOptions(file, caption)
+	time.Sleep(500 * time.Millisecond)
 	if _, err = client.EditMessage(&send.MsgID, 0, caption, &options); err != nil {
 		client.Logger.Warn("Edit failed:", err)
+		if strings.Contains("MEDIA_EMPTY", err.Error()) {
+			time.Sleep(1 * time.Second)
+			_, err = client.EditMessage(&send.MsgID, 0, caption, &options)
+		}
 		_, _ = client.EditMessage(&send.MsgID, 0, "❌ Failed to send the song.")
 	}
 	return nil
