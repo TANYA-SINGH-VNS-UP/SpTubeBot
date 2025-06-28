@@ -2,15 +2,22 @@ package src
 
 import (
 	"fmt"
+	"songBot/src/config"
 	"time"
 
 	"github.com/amarnathcjd/gogram/telegram"
 )
 
-// StartHandle responds to the /start command with a welcome message.
-func StartHandle(m *telegram.NewMessage) error {
+// startHandle responds to the /start command with a welcome message.
+func startHandle(m *telegram.NewMessage) error {
 	bot := m.Client.Me()
 	name := m.Sender.FirstName
+	go func() {
+		err := config.SaveUser(m.Sender.ID)
+		if err != nil {
+			m.Client.Logger.Error("Save user error:", err)
+		}
+	}()
 
 	response := fmt.Sprintf(
 		`👋 Hello <b>%s</b>!
@@ -37,8 +44,8 @@ Enjoy endless tunes! 🚀`,
 	return err
 }
 
-// PingHandle responds to the /ping command with the bot's latency.
-func PingHandle(m *telegram.NewMessage) error {
+// pingHandle responds to the /ping command with the bot's latency.
+func pingHandle(m *telegram.NewMessage) error {
 	start := time.Now()
 
 	msg, err := m.Reply("⏱️ Pinging...")

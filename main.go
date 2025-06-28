@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"songBot/src"
 	"songBot/src/config"
 	"time"
 
@@ -17,23 +18,24 @@ var (
 )
 
 func main() {
-	if len(config.Tokens) == 0 || config.ApiKey == "" || config.ApiUrl == "" {
-		log.Fatal("Missing environment variables. Please set TOKENS, API_KEY, and API_URL.")
+	if config.Token == "" || config.ApiKey == "" || config.ApiUrl == "" || config.MongoUrl == "" {
+		log.Fatal("Missing environment variables. Please set TOKEN, API_KEY, API_URL and MONGO_URL.")
 	}
 
 	if err := os.Mkdir("downloads", os.ModePerm); err != nil && !os.IsExist(err) {
 		log.Fatalf("Failed to create downloads directory: %v", err)
 	}
 
-	for i, token := range config.Tokens {
-		if i == 0 {
-			continue
+	Tokens, err := config.GetAllBotTokens()
+	if err == nil && len(Tokens) > 0 {
+		log.Printf("Starting %d clients.", len(Tokens))
+		for i, token := range Tokens {
+			go startClient(i, token)
 		}
-		go startClient(i, token)
 	}
 
 	// Start main client
-	client, ok := buildAndStart(0, config.Tokens[0])
+	client, ok := buildAndStart(0, config.Token)
 	if !ok {
 		log.Fatalf("[Client] Startup failed")
 	}
@@ -83,8 +85,7 @@ func buildAndStart(index int, token string) (*tg.Client, bool) {
 		return nil, false
 	}
 
-	initFunc(client)
-
+	src.InitFunc(client)
 	me, err := client.GetMe()
 	if err != nil {
 		log.Printf("[Client %d] ❌ Failed to get bot info: %v", index, err)

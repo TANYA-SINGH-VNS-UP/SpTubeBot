@@ -45,8 +45,8 @@ func clientSendEditedMessage(client *telegram.Client, msgID any, text string, op
 	return err
 }
 
-// SpotifySearchSong handles user input for searching Spotify tracks.
-func SpotifySearchSong(m *telegram.NewMessage) error {
+// spotifySearchSong handles user input for searching Spotify tracks.
+func spotifySearchSong(m *telegram.NewMessage) error {
 	query := m.Text()
 	if m.IsCommand() {
 		query = m.Args()
@@ -94,8 +94,8 @@ func SpotifySearchSong(m *telegram.NewMessage) error {
 	return nil
 }
 
-// SpotifyHandlerCallback handles callback queries from inline buttons.
-func SpotifyHandlerCallback(cb *telegram.CallbackQuery) error {
+// spotifyHandlerCallback handles callback queries from inline buttons.
+func spotifyHandlerCallback(cb *telegram.CallbackQuery) error {
 	data := cb.DataString()
 	split1, split2 := strings.Index(data, "_"), strings.LastIndex(data, "_")
 	if split1 == -1 || split2 == -1 || split1 == split2 {
@@ -172,8 +172,8 @@ func SpotifyHandlerCallback(cb *telegram.CallbackQuery) error {
 	return nil
 }
 
-// SpotifyInlineSearch handles inline Spotify queries.
-func SpotifyInlineSearch(query *telegram.InlineQuery) error {
+// spotifyInlineSearch handles inline Spotify queries.
+func spotifyInlineSearch(query *telegram.InlineQuery) error {
 	q := strings.TrimSpace(query.Query)
 	builder := query.Builder()
 
@@ -222,8 +222,8 @@ func SpotifyInlineSearch(query *telegram.InlineQuery) error {
 	return nil
 }
 
-// SpotifyInlineHandler handles inline result selection.
-func SpotifyInlineHandler(update telegram.Update, client *telegram.Client) error {
+// spotifyInlineHandler handles inline result selection.
+func spotifyInlineHandler(update telegram.Update, client *telegram.Client) error {
 	send := update.(*telegram.UpdateBotInlineSend)
 	track, err := utils.NewApiData(send.ID).GetTrack()
 	if err != nil {

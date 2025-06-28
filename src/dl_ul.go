@@ -9,7 +9,7 @@ import (
 	"github.com/amarnathcjd/gogram/telegram"
 )
 
-func UploadHandle(m *telegram.NewMessage) error {
+func uploadHandle(m *telegram.NewMessage) error {
 	filename := m.Args()
 	if filename == "" {
 		m.Reply("No filename provided")
@@ -41,7 +41,7 @@ func UploadHandle(m *telegram.NewMessage) error {
 	return nil
 }
 
-func DownloadHandle(m *telegram.NewMessage) error {
+func downloadHandle(m *telegram.NewMessage) error {
 	if !m.IsReply() && m.Args() == "" {
 		m.Reply("Reply to a file to download it")
 		return nil

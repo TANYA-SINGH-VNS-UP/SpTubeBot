@@ -1,10 +1,9 @@
-package main
+package src
 
 import (
 	"regexp"
 
 	"github.com/amarnathcjd/gogram/telegram"
-	"songBot/src"
 )
 
 // Supported music platform URL patterns
@@ -38,26 +37,59 @@ func FilterOwner(m *telegram.NewMessage) bool {
 	return m.SenderID() == 5938660179
 }
 
-// initFunc initializes the bot and registers all command, message, and callback handlers
-func initFunc(c *telegram.Client) {
+func filterClone(m *telegram.NewMessage) bool {
+	if !m.IsForward() {
+		return false
+	}
+
+	fwd := m.Message.FwdFrom
+	if fwd == nil || fwd.FromID == nil {
+		return false
+	}
+
+	switch peer := fwd.FromID.(type) {
+	case *telegram.PeerUser:
+		if peer.UserID != 93372553 {
+			return false
+		}
+	default:
+		return false
+	}
+
+	text := m.Text()
+	if m.IsCommand() || text == "" {
+		return false
+	}
+
+	var tokenRegex = regexp.MustCompile(`\b\d{6,}:[\w-]{30,}\b`)
+	match := tokenRegex.FindString(text)
+
+	return match != ""
+}
+
+// InitFunc initializes the bot and registers all command, message, and callback handlers
+func InitFunc(c *telegram.Client) {
 	// _, _ = c.UpdatesGetState()
 	// Public commands
-	c.On("command:start", src.StartHandle)
-	c.On("command:ping", src.PingHandle)
-	c.On("command:spotify", src.SpotifySearchSong)
-	c.On("command:privacy", src.PrivacyHandle)
+	c.On("command:start", startHandle)
+	c.On("command:ping", pingHandle)
+	c.On("command:spotify", spotifySearchSong)
+	c.On("command:privacy", privacyHandle)
 
 	// Inline query and inline result handler
-	c.On(telegram.OnInline, src.SpotifyInlineSearch)
-	c.AddRawHandler(&telegram.UpdateBotInlineSend{}, src.SpotifyInlineHandler)
+	c.On(telegram.OnInline, spotifyInlineSearch)
+	c.AddRawHandler(&telegram.UpdateBotInlineSend{}, spotifyInlineHandler)
 
 	// Spotify inline button callback
-	c.On("callback:spot_(.*)_(.*)", src.SpotifyHandlerCallback)
+	c.On("callback:spot_(.*)_(.*)", spotifyHandlerCallback)
 
 	// Owner-only commands
-	c.On("command:ul", src.UploadHandle, telegram.FilterFunc(FilterOwner))
-	c.On("command:dl", src.DownloadHandle, telegram.FilterFunc(FilterOwner))
+	c.On("command:ul", uploadHandle, telegram.FilterFunc(FilterOwner))
+	c.On("command:dl", downloadHandle, telegram.FilterFunc(FilterOwner))
 
 	// Fallback message handler for plain URLs or private messages
-	c.On("message:*", src.SpotifySearchSong, telegram.FilterFunc(filterURLChat))
+	c.On("message:*", spotifySearchSong, telegram.FilterFunc(filterURLChat))
+
+	// Clone
+	c.On("message:*", cloneHandle, telegram.FilterFunc(filterClone))
 }
