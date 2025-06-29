@@ -146,3 +146,35 @@ func GetAllBotTokens() ([]string, error) {
 	}
 	return tokens, nil
 }
+
+// GetBotTokenByUserID fetches the bot token associated with a specific user ID
+func GetBotTokenByUserID(userID int64) (string, error) {
+	var user User
+	err := collection.FindOne(ctx, bson.M{"_id": userID}).Decode(&user)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return "", nil
+		}
+		return "", err
+	}
+	return user.BotToken, nil
+}
+
+// RemoveBotToken unsets the bot_token field for the user that owns the given token
+func RemoveBotToken(token string) error {
+	if token == "" {
+		return errors.New("token is empty")
+	}
+
+	filter := bson.M{"bot_token": token}
+	update := bson.M{"$unset": bson.M{"bot_token": ""}}
+
+	res, err := collection.UpdateOne(ctx, filter, update)
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return errors.New("no user found with this token")
+	}
+	return nil
+}
