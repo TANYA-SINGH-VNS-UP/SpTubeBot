@@ -82,6 +82,7 @@ func (d *Download) processYouTube() (string, []byte, error) {
 
 func (d *Download) processSoundCloud() (string, []byte, error) {
 	coverData, err := getCover(d.Track.Cover)
+
 	return d.Track.CdnURL, coverData, err
 }
 

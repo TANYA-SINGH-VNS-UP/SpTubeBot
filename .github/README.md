@@ -79,7 +79,7 @@ docker run -d --name songbot --env-file .env songbot
 | `/spotify [url]` | Download from Spotify link |
 | `/help`          | Show command reference     |
 
-**Inline Mode**: Type `@FallenSongBot` in any chat to search songs instantly!
+**Inline Mode**: Type `@SpTubeBot` in any chat to search songs instantly!
 
 ## 🆘 Support
 

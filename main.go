@@ -7,6 +7,7 @@ import (
 	"os"
 	"songBot/src"
 	"songBot/src/config"
+	"strings"
 	"time"
 
 	tg "github.com/amarnathcjd/gogram/telegram"
@@ -47,6 +48,19 @@ func main() {
 	go autoRestart(24 * time.Hour)
 	client.Idle()
 	log.Printf("[Client 0] Bot stopped.")
+
+	files, err := os.ReadDir(".")
+	if err == nil {
+		for _, file := range files {
+			if strings.HasSuffix(file.Name(), ".db") {
+				if err = os.Remove(file.Name()); err != nil {
+					log.Printf("Failed to remove file %s: %v", file.Name(), err)
+				}
+			}
+		}
+	} else {
+		log.Printf("Failed to read current directory: %v", err)
+	}
 }
 
 func buildAndStart(index int, token string) (*tg.Client, bool) {

@@ -23,13 +23,18 @@ const (
 	mimeApplication = "application/json"
 )
 
-// URL patterns to detect supported music platforms
-var urlPatterns = map[string]*regexp.Regexp{
-	"spotify":       regexp.MustCompile(`^(https?://)?(open\.spotify\.com/(track|playlist|album|artist)/[a-zA-Z0-9]+)(\?.*)?$`),
-	"youtube":       regexp.MustCompile(`^(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/)[\w-]+(\?.*)?$`),
-	"youtube_music": regexp.MustCompile(`^(https?://)?(music\.)?youtube\.com/(watch\?v=|playlist\?list=)[\w-]+(\?.*)?$`),
-	"soundcloud":    regexp.MustCompile(`^(https?://)?(www\.)?soundcloud\.com/[\w-]+(/[\w-]+)?(/sets/[\w-]+)?(\?.*)?$`),
-	"apple_music":   regexp.MustCompile(`^(https?://)?(music|geo)\.apple\.com/[a-z]{2}/(album|playlist|song)/[^/]+/\d+(\?i=\d+)?(\?.*)?$`)}
+// UrlPatterns URL patterns to detect supported music platforms
+var UrlPatterns = map[string]*regexp.Regexp{
+	"spotify": regexp.MustCompile(`^(https?://)?([a-z0-9-]+\.)*spotify\.com/(track|playlist|album|artist)/[a-zA-Z0-9]+(\?.*)?$`),
+
+	"youtube": regexp.MustCompile(`^(https?://)?([a-z0-9-]+\.)*(youtube\.com/watch\?v=|youtu\.be/)[\w-]+(\?.*)?$`),
+
+	"youtube_music": regexp.MustCompile(`^(https?://)?([a-z0-9-]+\.)*youtube\.com/(watch\?v=|playlist\?list=)[\w-]+(\?.*)?$`),
+
+	"soundcloud": regexp.MustCompile(`^(https?://)?([a-z0-9-]+\.)*soundcloud\.com/[\w-]+(/[\w-]+)?(/sets/[\w-]+)?(\?.*)?$`),
+
+	"apple_music": regexp.MustCompile(`^(https?://)?(music|geo|[a-z0-9-]+)\.apple\.com/[a-z]{2}/(album|playlist|song)/[^/]+/\d+(\?i=\d+)?(\?.*)?$`),
+}
 
 // ApiData represents a reusable HTTP client for API operations
 type ApiData struct {
@@ -57,7 +62,7 @@ func (api *ApiData) IsValid(rawURL string) bool {
 		return false
 	}
 
-	for _, pattern := range urlPatterns {
+	for _, pattern := range UrlPatterns {
 		if pattern.MatchString(rawURL) {
 			return true
 		}

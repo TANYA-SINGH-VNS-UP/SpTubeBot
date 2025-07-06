@@ -151,8 +151,11 @@ func spotifyHandlerCallback(cb *telegram.CallbackQuery) error {
 			}
 		}
 	}
+
 	defer func() {
-		_ = os.Remove(audioFile)
+		if _, err := os.Stat(audioFile); err == nil {
+			_ = os.Remove(audioFile)
+		}
 	}()
 
 	progress := telegram.NewProgressManager(4)
@@ -162,7 +165,7 @@ func spotifyHandlerCallback(cb *telegram.CallbackQuery) error {
 	opts := prepareTrackMessageOptions(audioFile, thumb, track, progress)
 	if _, err = msg.Edit(buildTrackCaption(track), opts); err != nil {
 		cb.Client.Logger.Warn("Send failed:", err.Error())
-		_, _ = msg.Edit("❌ Failed to send the track.")
+		_, _ = msg.Edit("❌ Failed to send the track." + err.Error())
 	}
 	return nil
 }

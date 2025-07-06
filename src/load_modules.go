@@ -2,18 +2,10 @@ package src
 
 import (
 	"regexp"
+	"songBot/src/utils"
 
 	"github.com/amarnathcjd/gogram/telegram"
 )
-
-// Supported music platform URL patterns
-var urlPatterns = map[string]*regexp.Regexp{
-	"spotify":       regexp.MustCompile(`^(https?://)?(open\.spotify\.com/(track|playlist|album|artist)/[a-zA-Z0-9]+)(\?.*)?$`),
-	"youtube":       regexp.MustCompile(`^(https?://)?(www\.)?(youtube\.com/watch\?v=|youtu\.be/)[\w-]+(\?.*)?$`),
-	"youtube_music": regexp.MustCompile(`^(https?://)?(music\.)?youtube\.com/(watch\?v=|playlist\?list=)[\w-]+(\?.*)?$`),
-	"soundcloud":    regexp.MustCompile(`^(https?://)?(www\.)?soundcloud\.com/[\w-]+(/[\w-]+)?(/sets/[\w-]+)?(\?.*)?$`),
-	"apple_music":   regexp.MustCompile(`^(https?://)?(music|geo)\.apple\.com/[a-z]{2}/(album|playlist|song)/[^/]+/\d+(\?i=\d+)?(\?.*)?$`),
-}
 
 // filterURLChat handles messages that are not commands but contain supported URLs or are private
 func filterURLChat(m *telegram.NewMessage) bool {
@@ -23,7 +15,7 @@ func filterURLChat(m *telegram.NewMessage) bool {
 		return false
 	}
 
-	for _, pattern := range urlPatterns {
+	for _, pattern := range utils.UrlPatterns {
 		if pattern.MatchString(text) {
 			return true
 		}
