@@ -48,21 +48,17 @@ func NewDownload(track TrackInfo) *Download {
 }
 
 func (d *Download) Process() (string, []byte, error) {
-	if d.Track.CdnURL == "" {
+	switch {
+	case d.Track.CdnURL == "":
 		return "", nil, ErrMissingCDNURL
-	}
-
-	switch d.Track.Platform {
-	case "youtube":
-		return d.processYouTube()
-	case "soundcloud":
-		return d.processSoundCloud()
+	case d.Track.Platform == "youtube" || d.Track.Platform == "soundcloud":
+		return d.processDirectDL()
 	default:
 		return d.processStandard()
 	}
 }
 
-func (d *Download) processYouTube() (string, []byte, error) {
+func (d *Download) processDirectDL() (string, []byte, error) {
 	track := d.Track
 
 	// Check for Telegram URL pattern
@@ -71,19 +67,13 @@ func (d *Download) processYouTube() (string, []byte, error) {
 		return track.CdnURL, coverData, err
 	}
 
-	filePath, err := DownloadFile(context.Background(), track.CdnURL, "", false)
+	filePath, err := downloadFile(context.Background(), track.CdnURL, "", false)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to download file: %w", err)
 	}
 
 	coverData, err := getCover(track.Cover)
 	return filePath, coverData, err
-}
-
-func (d *Download) processSoundCloud() (string, []byte, error) {
-	coverData, err := getCover(d.Track.Cover)
-
-	return d.Track.CdnURL, coverData, err
 }
 
 func (d *Download) processStandard() (string, []byte, error) {
@@ -337,7 +327,7 @@ func createVorbisImageBlock(imageBytes []byte) string {
 	return string(data)
 }
 
-func DownloadFile(ctx context.Context, urlStr, filePath string, overwrite bool) (string, error) {
+func downloadFile(ctx context.Context, urlStr, filePath string, overwrite bool) (string, error) {
 	if urlStr == "" {
 		return "", errors.New("empty URL provided")
 	}
