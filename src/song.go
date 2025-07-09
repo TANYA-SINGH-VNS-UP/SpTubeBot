@@ -12,6 +12,11 @@ import (
 	"songBot/src/utils"
 )
 
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
 // prepareTrackMessageOptions builds SendOptions for sending an audio track.
 func prepareTrackMessageOptions(file any, thumb any, track *utils.TrackInfo, progress *telegram.ProgressManager) telegram.SendOptions {
 	return telegram.SendOptions{
@@ -98,78 +103,6 @@ func spotifySearchSong(m *telegram.NewMessage) error {
 	return nil
 }
 
-// spotifyHandlerCallback handles callback queries from inline buttons.
-func spotifyHandlerCallback(cb *telegram.CallbackQuery) error {
-	data := cb.DataString()
-	split1, split2 := strings.Index(data, "_"), strings.LastIndex(data, "_")
-	if split1 == -1 || split2 == -1 || split1 == split2 {
-		_, _ = cb.Answer("❌ Invalid selection.", &telegram.CallbackOptions{Alert: true})
-		_, _ = cb.Delete()
-		return nil
-	}
-
-	idEnc := data[split1+1 : split2]
-	uid := data[split2+1:]
-	if uid != "0" && uid != fmt.Sprint(cb.SenderID) {
-		_, _ = cb.Answer("🚫 This action is not meant for you.", &telegram.CallbackOptions{Alert: true})
-		return nil
-	}
-
-	_, _ = cb.Answer("🔄 Processing your request...", &telegram.CallbackOptions{Alert: true})
-
-	url, err := utils.DecodeURL(idEnc)
-	if err != nil {
-		cb.Client.Logger.Warn("Failed to decode URL:", err.Error())
-		_, _ = cb.Edit("❌ Failed to decode the URL.")
-		return nil
-	}
-
-	track, err := utils.NewApiData(url).GetTrack()
-	if err != nil {
-		cb.Client.Logger.Warn("Failed to fetch track:", err.Error())
-		_, _ = cb.Edit("❌ Could not fetch track details.")
-		return nil
-	}
-
-	msg, _ := cb.Edit("⏬ Downloading the song...")
-	audioFile, thumb, err := utils.NewDownload(*track).Process()
-	if err != nil || audioFile == "" {
-		cb.Client.Logger.Warn("Download/process failed:", err)
-		_, _ = msg.Edit("⚠️ Failed to download the song.")
-		return nil
-	}
-
-	msg, _ = msg.Edit("⏫ Uploading the song...")
-	if matches := regexp.MustCompile(`https?://t\.me/([^/]+)/(\d+)`).FindStringSubmatch(audioFile); len(matches) == 3 {
-		if id, err := strconv.Atoi(matches[2]); err == nil {
-			if ref, err := msg.Client.GetMessageByID(matches[1], int32(id)); err == nil {
-				audioFile, err = ref.Download(&telegram.DownloadOptions{FileName: ref.File.Name})
-				if err != nil {
-					_, _ = msg.Edit("⚠️ Failed to download file. " + err.Error())
-					return nil
-				}
-			}
-		}
-	}
-
-	defer func() {
-		if _, err := os.Stat(audioFile); err == nil {
-			_ = os.Remove(audioFile)
-		}
-	}()
-
-	progress := telegram.NewProgressManager(4)
-	progress.Edit(telegram.MediaDownloadProgress(msg, progress))
-
-	time.Sleep(300 * time.Millisecond)
-	opts := prepareTrackMessageOptions(audioFile, thumb, track, progress)
-	if _, err = msg.Edit(buildTrackCaption(track), opts); err != nil {
-		cb.Client.Logger.Warn("Send failed:", err.Error())
-		_, _ = msg.Edit("❌ Failed to send the track." + err.Error())
-	}
-	return nil
-}
-
 // spotifyInlineSearch handles inline Spotify queries.
 func spotifyInlineSearch(query *telegram.InlineQuery) error {
 	q := strings.TrimSpace(query.Query)
@@ -236,19 +169,21 @@ func spotifyInlineHandler(update telegram.Update, client *telegram.Client) error
 		return nil
 	}
 
-	defer func() {
-		_ = os.Remove(audioFile)
-	}()
+	if !fileExists(audioFile) {
+		client.Logger.Warn("[Inline] Audio file does not exist:", audioFile)
+		_, _ = client.EditMessage(&send.MsgID, 0, "❌ Audio file missing.")
+		return nil
+	}
 
 	progress := telegram.NewProgressManager(3).SetInlineMessage(client, &send.MsgID)
 	caption := buildTrackCaption(track)
 	options := prepareTrackMessageOptions(audioFile, thumb, track, progress)
 
-	time.Sleep(300 * time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 	err = clientSendEditedMessage(client, &send.MsgID, caption, &options)
 	if err != nil && strings.Contains(err.Error(), "MEDIA_EMPTY") {
 		client.Logger.Warn("Retrying due to MEDIA_EMPTY...")
-		time.Sleep(700 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 		err = clientSendEditedMessage(client, &send.MsgID, caption, &options)
 	}
 
@@ -257,4 +192,88 @@ func spotifyInlineHandler(update telegram.Update, client *telegram.Client) error
 		_, _ = client.EditMessage(&send.MsgID, 0, "❌ Failed to send the song."+err.Error())
 	}
 	return err
+}
+
+// spotifyHandlerCallback handles callback queries from inline buttons.
+func spotifyHandlerCallback(cb *telegram.CallbackQuery) error {
+	data := cb.DataString()
+	split1, split2 := strings.Index(data, "_"), strings.LastIndex(data, "_")
+	if split1 == -1 || split2 == -1 || split1 == split2 {
+		_, _ = cb.Answer("❌ Invalid selection.", &telegram.CallbackOptions{Alert: true})
+		_, _ = cb.Delete()
+		return nil
+	}
+
+	idEnc := data[split1+1 : split2]
+	uid := data[split2+1:]
+	if uid != "0" && uid != fmt.Sprint(cb.SenderID) {
+		_, _ = cb.Answer("🚫 This action is not meant for you.", &telegram.CallbackOptions{Alert: true})
+		return nil
+	}
+
+	_, _ = cb.Answer("🔄 Processing your request...", &telegram.CallbackOptions{Alert: true})
+	url, err := utils.DecodeURL(idEnc)
+	if err != nil {
+		cb.Client.Logger.Warn("Failed to decode URL:", err.Error())
+		_, _ = cb.Edit("❌ Failed to decode the URL.")
+		return nil
+	}
+
+	track, err := utils.NewApiData(url).GetTrack()
+	if err != nil {
+		cb.Client.Logger.Warn("Failed to fetch track:", err.Error())
+		_, _ = cb.Edit("❌ Could not fetch track details.")
+		return nil
+	}
+
+	msg, _ := cb.Edit("⏬ Downloading the song...")
+	audioFile, thumb, err := utils.NewDownload(*track).Process()
+	if err != nil || audioFile == "" {
+		cb.Client.Logger.Warn("Download/process failed:", err)
+		_, _ = msg.Edit("⚠️ Failed to download the song.")
+		return nil
+	}
+
+	// Check if file is a Telegram link (e.g., https://t.me/channel/1234)
+	if matches := regexp.MustCompile(`https?://t\.me/([^/]+)/(\d+)`).FindStringSubmatch(audioFile); len(matches) == 3 {
+		if id, err := strconv.Atoi(matches[2]); err == nil {
+			if ref, err := msg.Client.GetMessageByID(matches[1], int32(id)); err == nil {
+				audioFile, err = ref.Download(&telegram.DownloadOptions{FileName: ref.File.Name})
+				if err != nil {
+					_, _ = msg.Edit("⚠️ Failed to download file. " + err.Error())
+					return nil
+				}
+			}
+		}
+	}
+
+	if !fileExists(audioFile) {
+		cb.Client.Logger.Warn("Audio file does not exist:", audioFile)
+		_, _ = msg.Edit("❌ Audio file missing.")
+		return nil
+	}
+
+	progress := telegram.NewProgressManager(4)
+	progress.Edit(telegram.MediaDownloadProgress(msg, progress))
+	opts := prepareTrackMessageOptions(audioFile, thumb, track, progress)
+	_, err = msg.Edit(buildTrackCaption(track), opts)
+	if err != nil {
+		cb.Client.Logger.Warn("Edit failed:", err.Error())
+		if strings.Contains(err.Error(), "MEDIA_EMPTY") {
+			cb.Client.Logger.Warn("Retrying due to MEDIA_EMPTY...")
+			time.Sleep(1 * time.Second)
+			_, err = msg.Edit(buildTrackCaption(track), opts)
+			if err != nil {
+				cb.Client.Logger.Warn("Failed to send the song:", err.Error())
+				_, _ = msg.Edit("❌ Failed to send the song. " + err.Error())
+			}
+			return nil
+		}
+
+		_, _ = msg.Edit("❌ Failed to send the track. " + err.Error())
+		return nil
+	}
+
+	cb.Client.Logger.Debug("Successfully sent track.")
+	return nil
 }

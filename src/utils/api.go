@@ -33,7 +33,7 @@ var UrlPatterns = map[string]*regexp.Regexp{
 
 	"soundcloud": regexp.MustCompile(`^(https?://)?([a-z0-9-]+\.)*soundcloud\.com/[\w-]+(/[\w-]+)?(/sets/[\w-]+)?(\?.*)?$`),
 
-	"apple_music": regexp.MustCompile(`^(https?://)?(music|geo|[a-z0-9-]+)\.apple\.com/[a-z]{2}/(album|playlist|song)/[^/]+/\d+(\?i=\d+)?(\?.*)?$`),
+	"apple_music": regexp.MustCompile(`^(https?://)?([a-z0-9-]+\.)?apple\.com/[a-z]{2}/(album|playlist|song)/[^/]+/(pl\.[a-zA-Z0-9]+|\d+)(\?i=\d+)?(\?.*)?$`),
 }
 
 // ApiData represents a reusable HTTP client for API operations
