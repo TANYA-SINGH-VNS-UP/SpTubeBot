@@ -67,7 +67,14 @@ func spotifyInlineHandler(update telegram.Update, client *telegram.Client) error
 		return nil
 	}
 
-	audioFile, thumb, err := utils.NewDownload(*track).Process()
+	dl, err := utils.NewDownload(*track)
+	if err != nil {
+		client.Logger.Warn("Invalid download:", err)
+		_, _ = client.EditMessage(&send.MsgID, 0, "⚠️ Failed to download the song."+err.Error())
+		return nil
+	}
+
+	audioFile, thumb, err := dl.Process()
 	if err != nil || audioFile == "" {
 		client.Logger.Warn("Process failed:", err)
 		_, _ = client.EditMessage(&send.MsgID, 0, "⚠️ Failed to download the song.")

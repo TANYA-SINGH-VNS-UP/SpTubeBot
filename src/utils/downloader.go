@@ -3,11 +3,13 @@ package utils
 import (
 	"archive/zip"
 	"context"
+	"errors"
 	"fmt"
-	"io"
+	"log"
 	"os"
 	"path/filepath"
-	"regexp"
+	"strings"
+	"sync"
 )
 
 type Download struct {
@@ -21,28 +23,37 @@ type ZipResult struct {
 	Errors       []error
 }
 
-func NewDownload(track TrackInfo) *Download {
-	return &Download{Track: track}
+// NewDownload creates a new Download instance with proper validation
+func NewDownload(track TrackInfo) (*Download, error) {
+	if track.CdnURL == "" {
+		return nil, errMissingCDNURL
+	}
+	return &Download{Track: track}, nil
 }
 
+// Process handles the download based on the track's platform
 func (d *Download) Process() (string, []byte, error) {
 	switch {
 	case d.Track.CdnURL == "":
 		return "", nil, errMissingCDNURL
-	case d.Track.Platform == "spotify":
+	case strings.EqualFold(d.Track.Platform, "spotify"):
 		return d.processSpotify()
 	default:
 		return d.processDirectDL()
 	}
 }
 
+// processDirectDL handles direct downloads with improved error handling
 func (d *Download) processDirectDL() (string, []byte, error) {
 	track := d.Track
 
-	// Check for Telegram URL pattern (e.g., https://t.me/username/123) for *YouTube*
-	if regexp.MustCompile(`^https:\/\/t\.me\/([a-zA-Z0-9_]{5,})\/(\d+)$`).MatchString(track.CdnURL) {
+	// Check for Telegram URL pattern
+	if tgURLRegex.MatchString(track.CdnURL) {
 		coverData, err := getCover(track.Cover)
-		return track.CdnURL, coverData, err
+		if err != nil {
+			return track.CdnURL, nil, nil
+		}
+		return track.CdnURL, coverData, nil
 	}
 
 	filePath, err := downloadFile(context.Background(), track.CdnURL, "", false)
@@ -51,35 +62,123 @@ func (d *Download) processDirectDL() (string, []byte, error) {
 	}
 
 	coverData, err := getCover(track.Cover)
-	return filePath, coverData, err
+	if err != nil {
+		return filePath, nil, fmt.Errorf("failed to get cover: %w", err)
+	}
+
+	return filePath, coverData, nil
 }
 
 // ZipTracks creates a ZIP archive containing all tracks from PlatformTracks
 func ZipTracks(tracks *PlatformTracks) (*ZipResult, error) {
-	zipFilename := generateRandomZipName()
-	result := &ZipResult{ZipPath: zipFilename}
-	zipFile, err := os.Create(zipFilename)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create zip file: %v", err)
+	if len(tracks.Results) == 0 {
+		return nil, errors.New("no tracks to process")
 	}
 
-	defer func(zipFile *os.File) {
-		_ = zipFile.Close()
-	}(zipFile)
+	zipFilename := generateRandomZipName()
+	zipFile, err := os.Create(zipFilename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create zip file: %w", err)
+	}
 
-	zipWriter := zip.NewWriter(zipFile)
+	result := &ZipResult{ZipPath: zipFilename}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
 
-	defer func(zipWriter *zip.Writer) {
-		_ = zipWriter.Close()
-	}(zipWriter)
+	// Create a buffered channel to collect file contents
+	fileChan := make(chan struct {
+		name string
+		data []byte
+	}, len(tracks.Results))
+
+	// Download all files concurrently
+	sem := make(chan struct{}, 10) // Limit concurrent downloads
+	errChan := make(chan error, len(tracks.Results))
 
 	for _, track := range tracks.Results {
-		err := processTrack(zipWriter, track)
+		wg.Add(1)
+		sem <- struct{}{} // Acquire semaphore
+
+		go func(t MusicTrack) {
+			defer wg.Done()
+			defer func() { <-sem }() // Release semaphore
+
+			// Download the file and read its contents
+			apiData := NewApiData(t.URL)
+			trackData, err := apiData.GetTrack()
+			if err != nil {
+				errChan <- fmt.Errorf("track %s: failed to get track info: %w", t.ID, err)
+				return
+			}
+
+			dl, err := NewDownload(*trackData)
+			if err != nil {
+				errChan <- fmt.Errorf("track %s: invalid download: %w", t.ID, err)
+				return
+			}
+
+			filename, _, err := dl.Process()
+			if err != nil {
+				errChan <- fmt.Errorf("track %s: failed to download track: %w", t.ID, err)
+				return
+			}
+
+			defer func() {
+				if err := os.Remove(filename); err != nil && !os.IsNotExist(err) {
+					log.Printf("warning: failed to remove temp file %q: %v", filename, err)
+				}
+			}()
+
+			data, err := os.ReadFile(filename)
+			if err != nil {
+				errChan <- fmt.Errorf("track %s: failed to read downloaded file: %w", t.ID, err)
+				return
+			}
+
+			// Send the data to be written to zip
+			fileChan <- struct {
+				name string
+				data []byte
+			}{
+				name: filepath.Base(filename),
+				data: data,
+			}
+
+			mu.Lock()
+			result.SuccessCount++
+			mu.Unlock()
+		}(track)
+	}
+
+	wg.Wait()
+	close(fileChan)
+	close(errChan)
+
+	zipWriter := zip.NewWriter(zipFile)
+	defer func() {
+		if err := zipWriter.Close(); err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("failed to close zip writer: %w", err))
+		}
+		if err := zipFile.Close(); err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("failed to close zip file: %w", err))
+		}
+	}()
+
+	for file := range fileChan {
+		zipEntry, err := zipWriter.Create(file.name)
 		if err != nil {
-			result.Errors = append(result.Errors, fmt.Errorf("track %s: %v", track.ID, err))
+			result.Errors = append(result.Errors, fmt.Errorf("failed to create zip entry %q: %w", file.name, err))
 			continue
 		}
-		result.SuccessCount++
+
+		if _, err := zipEntry.Write(file.data); err != nil {
+			result.Errors = append(result.Errors, fmt.Errorf("failed to write %q to zip: %w", file.name, err))
+			continue
+		}
+	}
+
+	for err := range errChan {
+		result.Errors = append(result.Errors, err)
 	}
 
 	if absPath, err := filepath.Abs(zipFilename); err == nil {
@@ -87,47 +186,8 @@ func ZipTracks(tracks *PlatformTracks) (*ZipResult, error) {
 	}
 
 	if result.SuccessCount == 0 {
-		return result, fmt.Errorf("no tracks were successfully added to the zip")
+		return result, fmt.Errorf("no tracks were successfully added to the zip: %v", result.Errors)
 	}
 
 	return result, nil
-}
-
-// processTrack handles downloading and adding a single track to the ZIP
-func processTrack(zipWriter *zip.Writer, track MusicTrack) error {
-	// Get the track data
-	apiData := NewApiData(track.URL)
-	trackData, err := apiData.GetTrack()
-	if err != nil {
-		return fmt.Errorf("failed to get track info: %v", err)
-	}
-
-	filename, _, err := NewDownload(*trackData).Process()
-	if err != nil {
-		return fmt.Errorf("failed to download track: %v", err)
-	}
-
-	audioFile, err := os.Open(filename)
-	if err != nil {
-		return fmt.Errorf("failed to open downloaded file: %v", err)
-	}
-	defer func(audioFile *os.File) {
-		_ = audioFile.Close()
-	}(audioFile)
-
-	baseName := filepath.Base(filename)
-	zipEntry, err := zipWriter.Create(baseName)
-	if err != nil {
-		return fmt.Errorf("failed to create zip entry: %v", err)
-	}
-
-	if _, err := io.Copy(zipEntry, audioFile); err != nil {
-		return fmt.Errorf("failed to write to zip: %v", err)
-	}
-
-	defer func() {
-		_ = os.Remove(filename)
-	}()
-
-	return nil
 }

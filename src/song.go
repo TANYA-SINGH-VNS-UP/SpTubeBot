@@ -94,8 +94,14 @@ func spotifyHandlerCallback(cb *telegram.CallbackQuery) error {
 	}
 
 	msg, _ := cb.Edit("⏬ Downloading the song...")
+	dl, err := utils.NewDownload(*track)
+	if err != nil {
+		cb.Client.Logger.Warn("Invalid download:", err)
+		_, _ = msg.Edit("⚠️ Failed to download the song." + err.Error())
+		return nil
+	}
 
-	audioFile, thumb, err := utils.NewDownload(*track).Process()
+	audioFile, thumb, err := dl.Process()
 	if err != nil || audioFile == "" {
 		cb.Client.Logger.Warn("Download/process failed:", err)
 		_, _ = msg.Edit("⚠️ Failed to download the song.")

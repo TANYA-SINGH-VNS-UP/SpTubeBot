@@ -36,6 +36,7 @@ var (
 	errInvalidHexKey         = errors.New("invalid hex key")
 	errInvalidAESIV          = errors.New("invalid AES IV")
 	errVorbisCommentNotFound = errors.New("vorbiscomment not found")
+	tgURLRegex               = regexp.MustCompile(`^https:\/\/t\.me\/([a-zA-Z0-9_]{5,})\/(\d+)$`)
 )
 
 func (d *Download) processSpotify() (string, []byte, error) {
