@@ -1,7 +1,6 @@
 package src
 
 import (
-	"regexp"
 	"songBot/src/utils"
 
 	"github.com/amarnathcjd/gogram/telegram"
@@ -29,36 +28,6 @@ func FilterOwner(m *telegram.NewMessage) bool {
 	return m.SenderID() == 5938660179
 }
 
-func filterClone(m *telegram.NewMessage) bool {
-	if !m.IsForward() {
-		return false
-	}
-
-	fwd := m.Message.FwdFrom
-	if fwd == nil || fwd.FromID == nil {
-		return false
-	}
-
-	switch peer := fwd.FromID.(type) {
-	case *telegram.PeerUser:
-		if peer.UserID != 93372553 {
-			return false
-		}
-	default:
-		return false
-	}
-
-	text := m.Text()
-	if m.IsCommand() || text == "" {
-		return false
-	}
-
-	var tokenRegex = regexp.MustCompile(`\b\d{6,}:[\w-]{30,}\b`)
-	match := tokenRegex.FindString(text)
-
-	return match != ""
-}
-
 // InitFunc initializes the bot and registers all command, message, and callback handlers
 func InitFunc(c *telegram.Client) {
 	_, _ = c.UpdatesGetState()
@@ -67,7 +36,7 @@ func InitFunc(c *telegram.Client) {
 	c.On("command:ping", pingHandle)
 	c.On("command:spotify", spotifySearchSong)
 	c.On("command:privacy", privacyHandle)
-	c.On("command:stop", stopHandler)
+	c.On("command:playlist", zipHandle)
 
 	// Inline query and inline result handler
 	c.On(telegram.OnInline, spotifyInlineSearch)
@@ -83,6 +52,4 @@ func InitFunc(c *telegram.Client) {
 	// Fallback message handler for plain URLs or private messages
 	c.On("message:*", spotifySearchSong, telegram.FilterFunc(filterURLChat))
 
-	// Clone
-	c.On("message:*", cloneHandle, telegram.FilterFunc(filterClone))
 }
