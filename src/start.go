@@ -33,8 +33,8 @@ Supports: <b>Spotify</b>, <b>YouTube</b>, <b>Apple Music</b>, <b>SoundCloud</b>
 Enjoy endless tunes! 🚀`, name, bot.FirstName, bot.Username)
 
 	keyboard := telegram.NewKeyboard().
-		AddRow(telegram.Button.URL("💫 Fᴀʟʟᴇɴ Pʀᴏᴊᴇᴄᴛꜱ", "https://t.me/FallenProjects")).
-		AddRow(telegram.Button.URL("🛠️ Sᴏᴜʀᴄᴇ Cᴏᴅᴇ", "https://github.com/AshokShau/SpTubeBot"))
+		AddRow(telegram.Button.URL(" ✨Pʀᴏᴊᴇᴄᴛꜱ", "https://t.me/HEROKU_CLUB")).
+		AddRow(telegram.Button.URL("🛠️ Sᴏᴜʀᴄᴇ Cᴏᴅᴇ", "https://t.me/NOBITA_SUPPORT"))
 	_, err := m.Reply(response, telegram.SendOptions{
 		ReplyMarkup: keyboard.Build(),
 	})
