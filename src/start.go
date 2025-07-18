@@ -34,7 +34,7 @@ Enjoy endless tunes! 🚀`, name, bot.FirstName, bot.Username)
 
 	keyboard := telegram.NewKeyboard().
 		AddRow(telegram.Button.URL(" ✨Pʀᴏᴊᴇᴄᴛꜱ✨", "https://t.me/HEROKU_CLUB")).
-	        AddRow(telegram.Button.URL(" 🤞野买 ⁽ 老🤞", "https://t.me/VNI0X")).
+	         AddRow(telegram.Button.URL(" 🤞野买 ⁽ 老🤞", "https://t.me/VNI0X")).
 		AddRow(telegram.Button.URL("🛠️ Sᴏᴜʀᴄᴇ Cᴏᴅᴇ", "https://t.me/NOBITA_SUPPORT"))
 	_, err := m.Reply(response, telegram.SendOptions{
 		ReplyMarkup: keyboard.Build(),
